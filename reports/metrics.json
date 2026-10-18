@@ -1,0 +1,419 @@
+{
+  "project": "AIOps_Expense_Tracker",
+  "dataset": {
+    "path": "data/ngn_expenses_labelled.csv",
+    "total_rows": 600,
+    "categories_count": 10,
+    "date_start": "2025-09-01",
+    "date_end": "2026-02-27",
+    "total_spend_ngn": 18820616.52
+  },
+  "categoriser": {
+    "train_rows": 450,
+    "test_rows": 150,
+    "split_type": "chronological_75_25",
+    "macro_f1": 0.9204,
+    "macro_f1_ci_95": [
+      0.859,
+      0.9614
+    ],
+    "weighted_f1": 0.9277,
+    "accuracy": 0.9267,
+    "accuracy_ci_95": [
+      0.88,
+      0.9667
+    ],
+    "ece": 0.1486,
+    "cv_5fold_macro_f1_mean": 0.9301,
+    "cv_5fold_macro_f1_std": 0.0231,
+    "cv_5fold_accuracy_mean": 0.93,
+    "baseline_rules_macro_f1": 0.7801,
+    "baseline_rules_accuracy": 0.7533,
+    "f1_lift_over_rules": 0.1403,
+    "rule_fallback_rate_test": 0.02,
+    "online_retrain_adaptation_Category": "Feeding & Groceries",
+    "online_retrain_adaptation_confidence": 0.8089,
+    "per_category": {
+      "Feeding & Groceries": {
+        "f1": 0.931,
+        "precision": 0.931,
+        "recall": 0.931,
+        "support": 29
+      },
+      "Transport & Fuel": {
+        "f1": 0.9583,
+        "precision": 0.92,
+        "recall": 1.0,
+        "support": 23
+      },
+      "Data & Utilities": {
+        "f1": 0.8947,
+        "precision": 1.0,
+        "recall": 0.8095,
+        "support": 21
+      },
+      "Rent & Housing": {
+        "f1": 0.8,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "support": 6
+      },
+      "Family & Dependents": {
+        "f1": 0.9,
+        "precision": 1.0,
+        "recall": 0.8182,
+        "support": 11
+      },
+      "Business SaaS & Cloud": {
+        "f1": 0.9167,
+        "precision": 0.9167,
+        "recall": 0.9167,
+        "support": 12
+      },
+      "POS & Bank Charges": {
+        "f1": 0.9333,
+        "precision": 1.0,
+        "recall": 0.875,
+        "support": 16
+      },
+      "Healthcare": {
+        "f1": 0.8696,
+        "precision": 0.7692,
+        "recall": 1.0,
+        "support": 10
+      },
+      "Equipment & Repairs": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 10
+      },
+      "Miscellaneous": {
+        "f1": 1.0,
+        "precision": 1.0,
+        "recall": 1.0,
+        "support": 12
+      }
+    }
+  },
+  "ingestion": {
+    "receipt_ocr": {
+      "benchmark_receipts": 40,
+      "total_evaluated_fields": 200,
+      "receipt_field_exact_match_rate": 0.975,
+      "receipt_full_exact_match_rate": 0.925,
+      "per_field_accuracy": {
+        "merchant": 1.0,
+        "date": 1.0,
+        "total_ngn": 1.0,
+        "vat_ngn": 0.925,
+        "payment_channel": 0.95
+      }
+    },
+    "bank_csv": {
+      "supported_banks": [
+        "GTBank",
+        "Access Bank",
+        "OPay",
+        "Kuda",
+        "Moniepoint"
+      ],
+      "smoke_test_rows_expected": 5,
+      "smoke_test_rows_parsed": 5,
+      "csv_parse_success_rate": 1.0
+    }
+  },
+  "anomaly_detection": {
+    "z_threshold": 2.5,
+    "total_transactions": 600,
+    "true_anomalies": 18,
+    "flagged_anomalies_mad": 31,
+    "mad_precision": 0.5806,
+    "mad_recall": 1.0,
+    "mad_f1": 0.7347,
+    "baseline_global_z_precision": 1.0,
+    "baseline_global_z_recall": 0.6111,
+    "baseline_global_z_f1": 0.7586,
+    "top_flagged_examples": [
+      {
+        "tx_id": "NGN-0431",
+        "date": "2026-01-09",
+        "merchant": "INTERSWITCH ATM SURCHARGE",
+        "category": "POS & Bank Charges",
+        "amount_ngn": 5576.52,
+        "category_median_ngn": 262.3,
+        "z_mad": 147.569,
+        "anomaly_reason": "\u20a65,577 is 21.3x category median (\u20a6262) in 'POS & Bank Charges' (z_mad=147.57)"
+      },
+      {
+        "tx_id": "NGN-0174",
+        "date": "2025-10-25",
+        "merchant": "INTERSWITCH ATM SURCHARGE",
+        "category": "POS & Bank Charges",
+        "amount_ngn": 4983.69,
+        "category_median_ngn": 262.3,
+        "z_mad": 131.107,
+        "anomaly_reason": "\u20a64,984 is 19.0x category median (\u20a6262) in 'POS & Bank Charges' (z_mad=131.11)"
+      },
+      {
+        "tx_id": "NGN-0014",
+        "date": "2025-09-06",
+        "merchant": "GTBANK & ACCESS BANK CHARGES",
+        "category": "POS & Bank Charges",
+        "amount_ngn": 4971.44,
+        "category_median_ngn": 262.3,
+        "z_mad": 130.766,
+        "anomaly_reason": "\u20a64,971 is 19.0x category median (\u20a6262) in 'POS & Bank Charges' (z_mad=130.77)"
+      },
+      {
+        "tx_id": "NGN-0388",
+        "date": "2025-12-28",
+        "merchant": "LANDLORD RENT ACCOUNT",
+        "category": "Rent & Housing",
+        "amount_ngn": 599339.16,
+        "category_median_ngn": 105188.91,
+        "z_mad": 116.423,
+        "anomaly_reason": "\u20a6599,339 is 5.7x category median (\u20a6105,189) in 'Rent & Housing' (z_mad=116.42)"
+      },
+      {
+        "tx_id": "NGN-0256",
+        "date": "2025-11-16",
+        "merchant": "SHOPRITE IKEJA CITY MALL",
+        "category": "Feeding & Groceries",
+        "amount_ngn": 138902.64,
+        "category_median_ngn": 13732.39,
+        "z_mad": 92.234,
+        "anomaly_reason": "\u20a6138,903 is 10.1x category median (\u20a613,732) in 'Feeding & Groceries' (z_mad=92.23)"
+      }
+    ]
+  },
+  "forecasting": {
+    "model": "Damped_Holt_Winters_ETS",
+    "horizon_months": 3,
+    "future_months": [
+      "2026-03",
+      "2026-04",
+      "2026-05"
+    ],
+    "holdout_months_evaluated": 2,
+    "holdout_mae_ngn": 55523.92,
+    "holdout_wape": 0.2042,
+    "baseline_seasonal_naive_mae_ngn": 74207.56,
+    "baseline_seasonal_naive_wape": 0.2729,
+    "historical_monthly_total_ngn": {
+      "2025-09": 2589423.39,
+      "2025-10": 2647149.93,
+      "2025-11": 2673413.98,
+      "2025-12": 2160684.64,
+      "2026-01": 2688912.18,
+      "2026-02": 2750167.09
+    },
+    "forecast_monthly_total_ngn": {
+      "2026-03": 2647290.49,
+      "2026-04": 2664575.11,
+      "2026-05": 2679267.06
+    },
+    "category_forecasts": {
+      "Feeding & Groceries": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 239997.36,
+          "ci80_low_ngn": 218148.89,
+          "ci80_high_ngn": 261845.83
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 242122.72,
+          "ci80_low_ngn": 220274.25,
+          "ci80_high_ngn": 263971.19
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 243929.27,
+          "ci80_low_ngn": 222080.8,
+          "ci80_high_ngn": 265777.74
+        }
+      ],
+      "Transport & Fuel": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 306845.88,
+          "ci80_low_ngn": 289681.68,
+          "ci80_high_ngn": 324010.08
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 306830.28,
+          "ci80_low_ngn": 289666.08,
+          "ci80_high_ngn": 323994.48
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 306817.03,
+          "ci80_low_ngn": 289652.83,
+          "ci80_high_ngn": 323981.23
+        }
+      ],
+      "Data & Utilities": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 314984.55,
+          "ci80_low_ngn": 233309.72,
+          "ci80_high_ngn": 396659.38
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 315899.61,
+          "ci80_low_ngn": 234224.78,
+          "ci80_high_ngn": 397574.44
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 316677.4,
+          "ci80_low_ngn": 235002.57,
+          "ci80_high_ngn": 398352.23
+        }
+      ],
+      "Rent & Housing": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 490031.56,
+          "ci80_low_ngn": 284646.19,
+          "ci80_high_ngn": 695416.93
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 493395.89,
+          "ci80_low_ngn": 288010.52,
+          "ci80_high_ngn": 698781.26
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 496255.58,
+          "ci80_low_ngn": 290870.21,
+          "ci80_high_ngn": 701640.95
+        }
+      ],
+      "Family & Dependents": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 422340.35,
+          "ci80_low_ngn": 343124.36,
+          "ci80_high_ngn": 501556.34
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 424196.25,
+          "ci80_low_ngn": 344980.26,
+          "ci80_high_ngn": 503412.24
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 425773.77,
+          "ci80_low_ngn": 346557.78,
+          "ci80_high_ngn": 504989.76
+        }
+      ],
+      "Business SaaS & Cloud": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 344608.12,
+          "ci80_low_ngn": 264232.48,
+          "ci80_high_ngn": 424983.76
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 350734.38,
+          "ci80_low_ngn": 270358.74,
+          "ci80_high_ngn": 431110.02
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 355941.71,
+          "ci80_low_ngn": 275566.07,
+          "ci80_high_ngn": 436317.35
+        }
+      ],
+      "POS & Bank Charges": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 2901.41,
+          "ci80_low_ngn": 2695.93,
+          "ci80_high_ngn": 3106.89
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 2932.9,
+          "ci80_low_ngn": 2727.42,
+          "ci80_high_ngn": 3138.38
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 2959.67,
+          "ci80_low_ngn": 2754.19,
+          "ci80_high_ngn": 3165.15
+        }
+      ],
+      "Healthcare": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 188618.57,
+          "ci80_low_ngn": 168758.04,
+          "ci80_high_ngn": 208479.1
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 190183.81,
+          "ci80_low_ngn": 170323.28,
+          "ci80_high_ngn": 210044.34
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 191514.27,
+          "ci80_low_ngn": 171653.74,
+          "ci80_high_ngn": 211374.8
+        }
+      ],
+      "Equipment & Repairs": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 225908.73,
+          "ci80_low_ngn": 172651.26,
+          "ci80_high_ngn": 279166.2
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 227233.09,
+          "ci80_low_ngn": 173975.62,
+          "ci80_high_ngn": 280490.56
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 228358.79,
+          "ci80_low_ngn": 175101.32,
+          "ci80_high_ngn": 281616.26
+        }
+      ],
+      "Miscellaneous": [
+        {
+          "month": "2026-03",
+          "forecast_ngn": 111053.96,
+          "ci80_low_ngn": 99191.18,
+          "ci80_high_ngn": 122916.74
+        },
+        {
+          "month": "2026-04",
+          "forecast_ngn": 111046.18,
+          "ci80_low_ngn": 99183.4,
+          "ci80_high_ngn": 122908.96
+        },
+        {
+          "month": "2026-05",
+          "forecast_ngn": 111039.57,
+          "ci80_low_ngn": 99176.79,
+          "ci80_high_ngn": 122902.35
+        }
+      ]
+    }
+  }
+}
