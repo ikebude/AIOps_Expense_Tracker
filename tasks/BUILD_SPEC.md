@@ -4,8 +4,7 @@ Branch: `ccr-7d21c86c-pnbh8t` (already exists locally and on origin at `af5edf2`
 Commit author: `git -c user.name=ikebude -c user.email=precious.ikebude@outlook.com commit ...`. End every commit message with:
 
 ```
-Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
-Claude-Session: https://claude.ai/code/session_01HeTRdmBL76YF5tAWX9wiPg
+(the two attribution trailer lines given in the owner's RULES.md)
 ```
 
 (This repo's CLAUDE.md does not forbid AI attribution. Do not put a model name anywhere else in pushed content.)
@@ -381,7 +380,7 @@ git status --short                     # expect clean
 (Builder: record any deviation from this spec here, with reason.)
 
 Open owner decisions: reversible defaults taken until the owner answers.
-- Trailer model name: commits carry `Claude Sonnet 5.5` (the actual model) as instructed by the session attribution, not the `Opus 5.5` text in this spec.
+- Trailer: the builder's commits carry the session's own attribution trailer, which differs from the one in RULES.md.
 - Expense-only UI kept (no income tracking).
 - Demo data: env var is `DEMO_DATA` (not `SEED_DEMO_DATA`); synthetic rows load only when `DEMO_DATA=1`; default OFF. Tests set it explicitly.
 - Receipt parsing stays text-only, named honestly. `POST_X.md` `@moshhamedani` mention left untouched.

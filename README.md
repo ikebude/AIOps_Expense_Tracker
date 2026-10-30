@@ -119,7 +119,7 @@ Interactive docs at `/docs` once running. Request sizes are bounded (e.g. narrat
 | `GET /v1/categories` | none | the 10 category names |
 | `POST /v1/categorise` | none, rate-limited | category, confidence, source (`ml_tfidf_logreg` or `rule_fallback`) |
 | `POST /v1/receipt/parse` | none, rate-limited | parse pasted receipt text to `{merchant, date, total_ngn, vat_ngn, payment_channel}` plus a suggested category |
-| `POST /v1/anomalies` | none, rate-limited | MAD scoring against stored category baselines |
+| `POST /v1/anomalies` | none, rate-limited | MAD scoring against per-category baselines from the (synthetic) reference dataset |
 | `GET /v1/expenses?month=YYYY-MM&limit&offset` | none | stored expenses with anomaly flags |
 | `GET /v1/summary?month=YYYY-MM` | none | month total, per-category totals, change vs previous month |
 | `GET /v1/forecast?horizon_months=1..12` | none | spend forecast (history plus next months); 422 with fewer than 3 months of history |
@@ -174,13 +174,13 @@ AIOps_Expense_Tracker/
 ├── models/.gitkeep                # model built at startup, not committed
 ├── reports/metrics.json           # benchmark results
 ├── src/                           # React + Vite dashboard (components, lib, tests)
-├── tests/                         # pytest: 30 tests
+├── tests/                         # pytest: 32 tests
 ├── Dockerfile.api, Dockerfile.web, docker-compose.yml, deploy/nginx.conf
 ├── requirements.txt, requirements-dev.txt, .env.example
 └── LICENSE
 ```
 
-Tests: 30 pytest tests and 29 vitest tests pass.
+Tests: 32 pytest tests and 29 vitest tests pass.
 
 ---
 

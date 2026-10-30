@@ -1,6 +1,6 @@
 # TEST_PLAN: AIOps Expense Tracker (workstream: expense)
 
-The tester (Opus) runs this plan independently and does **not** trust the builder's report. Run everything from `/home/user/AIOps_Expense_Tracker` on branch `ccr-7d21c86c-pnbh8t`, starting from a fresh `git pull`.
+The tester runs this plan independently and does **not** trust the builder's report. Run everything from `/home/user/AIOps_Expense_Tracker` on branch `ccr-7d21c86c-pnbh8t`, starting from a fresh `git pull`.
 Python: `PY=/tmp/claude-0/-home-user/e6ff3af4-b759-5a42-ae4a-d7f12c188d23/scratchpad/venv/bin/python`. The system python has no pytest. Alternatively create a fresh `.venv` from `requirements-dev.txt`. That is preferred, because it proves the pins resolve.
 Chrome for screenshots: `/root/.cache/puppeteer/chrome/linux-156.0.8078.47/chrome-linux64/chrome` (headless). The Playwright CLI 1.63 is reachable via `npx`, but its browsers are not cached.
 Docker: the CLI and Compose are present, but there is **no daemon**. Image builds cannot be verified here.
@@ -11,7 +11,7 @@ Planner baseline for comparison (HEAD `af5edf2`): pytest 9 passed / 8 warnings, 
 
 | # | Command | Expected |
 |---|---|---|
-| A1 | `git log --oneline af5edf2..HEAD` | One commit per spec item (about 11–12); authored by `ikebude <precious.ikebude@outlook.com>`; each ends with the two trailer lines; no model name elsewhere (`git log -p af5edf2..HEAD \| grep -n "Opus\|Sonnet\|Claude" \| grep -v "Co-Authored-By\|Claude-Session"` → only legitimate hits, such as the keyword-rule list in `ml/categoriser.py`, which was already there) |
+| A1 | `git log --oneline af5edf2..HEAD` | One commit per spec item (about 11–12); authored by `ikebude <precious.ikebude@outlook.com>`; each ends with the two trailer lines; no model name elsewhere (`git log -p af5edf2..HEAD \| grep -n "<model names>" \| grep -v "Co-Authored-By\|Claude-Session"` → only legitimate hits, such as the keyword-rule list in `ml/categoriser.py`, which was already there) |
 | A2 | `cat requirements.txt requirements-dev.txt` | Exact `==` pins: fastapi 0.162.0, uvicorn 0.54.0, pydantic 2.14.2, pandas 3.1.0, numpy 2.5.4, scikit-learn 1.9.1, joblib 1.6.0; dev: matplotlib 3.11.2, pytest 9.2.0, httpx 0.28.1 |
 | A3 | `$PY -m pytest -q -W error::sklearn.exceptions.InconsistentVersionWarning` | 0 failed; count = 9 original + new (spec asks for 8 security + 7 expense cases, so ≥24 total); no InconsistentVersionWarning |
 | A4 | `$PY -m ml.run_benchmark; git diff --exit-code -- reports/metrics.json data/ngn_expenses_labelled.csv` | Exit 0 (committed artefacts are fresh). Run twice; `sha256sum` identical |

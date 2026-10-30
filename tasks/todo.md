@@ -22,4 +22,4 @@ Final verification (2026-10-30):
 - `docker compose config` -> COMPOSE_OK. Images NOT built (no Docker daemon in this environment).
 - No .joblib/.db/.env tracked; no dangerouslySetInnerHTML or f-string SQL.
 - Not verified here: a live browser run of the dashboard (component tests with mocked fetch only), CI on GitHub.
-- Deviations: see tasks/BUILD_SPEC.md "Builder notes" (DEMO_DATA opt-in, wider API-key auth, calendar-date vs `month` bucketing, Sonnet trailer, items 6-7 and 8-10 committed together, item 4 pushed once with 2 red tests then fixed).
+- Deviations: see tasks/BUILD_SPEC.md "Builder notes" (DEMO_DATA opt-in, wider API-key auth, calendar-date vs `month` bucketing, different attribution trailer, items 6-7 and 8-10 committed together, item 4 pushed once with 2 red tests then fixed).
