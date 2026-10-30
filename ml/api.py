@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import csv
 import datetime as dt
 import logging
 import threading
@@ -11,7 +12,8 @@ from decimal import Decimal
 from typing import Any, Literal
 
 import pandas as pd
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field, field_validator
@@ -32,6 +34,7 @@ from ml.ingestion import extract_receipt_fields, parse_bank_csv
 _STATE: dict[str, Any] = {}
 _STATE_LOCK = threading.Lock()
 _BASE_ROWS = 450
+MAX_CSV_ROWS = 5000  # each row is classified synchronously (~5 ms); bounds request time
 log = logging.getLogger("ml.api")
 
 
@@ -89,6 +92,14 @@ app.add_middleware(
     allow_headers=["Content-Type", "X-API-Key"],
     allow_credentials=False,
 )
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error_handler(_: Request, exc: RequestValidationError) -> JSONResponse:
+    """422 without echoing inputs: a JSON number like 1e400 parses to inf, which
+    the default handler cannot serialise (it returned 500)."""
+    errors = [{k: v for k, v in e.items() if k in ("type", "loc", "msg")} for e in exc.errors()]
+    return JSONResponse({"detail": errors}, status_code=422)
 
 
 Category = Literal[tuple(CATEGORIES)]  # type: ignore[valid-type]
@@ -242,7 +253,12 @@ def parse_receipt_endpoint(req: ReceiptParseRequest) -> dict[str, Any]:
     dependencies=[Depends(require_api_key), Depends(rate_limit_default)],
 )
 def import_bank_csv_endpoint(req: CsvImportRequest) -> dict[str, Any]:
-    rows = parse_bank_csv(req.csv_text, bank_hint=req.bank_hint)
+    try:
+        rows = parse_bank_csv(req.csv_text, bank_hint=req.bank_hint)
+    except csv.Error as e:  # e.g. a field over the csv module's 131072-char limit
+        raise HTTPException(422, f"Unreadable CSV: {e}") from None
+    if len(rows) > MAX_CSV_ROWS:
+        raise HTTPException(422, f"CSV has {len(rows)} rows; the limit is {MAX_CSV_ROWS} per request")
     state = _get_state()
     model: ExpenseCategoriser = state["model"]
     enriched: list[dict[str, Any]] = []

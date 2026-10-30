@@ -75,10 +75,35 @@ def test_input_bounds(make_client):
     assert c.post("/v1/anomalies", json={"transactions": [tx]}).status_code == 422
 
 
+def test_non_finite_number_is_422_not_500(make_client):
+    # A raw JSON 1e400 parses to inf; the default 422 handler could not serialise it (500).
+    c = make_client()
+    body = '{"transactions": [{"category": "Miscellaneous", "amount_ngn": 1e400}]}'
+    r = c.post("/v1/anomalies", content=body, headers={"Content-Type": "application/json"})
+    assert r.status_code == 422
+    assert "input" not in r.json()["detail"][0]
+
+
 def test_csv_import_requires_key(make_client):
     c = make_client(EXPENSE_API_KEY="s3cret")
     body = {"csv_text": "a,b\n1,2"}
     assert c.post("/v1/csv/import", json=body).status_code == 401
+
+
+def test_csv_import_hostile_files(make_client):
+    c = make_client(EXPENSE_API_KEY="s3cret")
+    head = "Trans. Date,Value Date,Remarks,Debit,Credit,Balance\n"
+    row = "02-Jan-2026,02-Jan-2026,POS SHOPRITE,5000,,1\n"
+    imp = lambda text: c.post("/v1/csv/import", json={"csv_text": text}, headers=KEY)  # noqa: E731
+    # Field over the csv module limit: was an unhandled csv.Error (500).
+    assert imp(head + "02-Jan-2026,02-Jan-2026," + "A" * 200_000 + ",5000,,1\n").status_code == 422
+    # Row cap bounds the synchronous classification time.
+    assert imp(head + row * 5001).status_code == 422
+    # A 400-digit amount overflowed to inf and came back as amount_ngn: null; now the row is skipped.
+    assert imp(head + "02-Jan-2026,02-Jan-2026,POS SHOPRITE," + "9" * 400 + ",,1\n").json()["imported_count"] == 0
+    # UTF-8 BOM no longer hides the date header (the date silently became today).
+    r = imp("﻿" + head + row).json()
+    assert r["transactions"][0]["date"] == "2026-01-02"
 
 
 def test_cors_allowlist(make_client):

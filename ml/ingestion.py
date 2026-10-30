@@ -5,6 +5,7 @@ from __future__ import annotations
 import csv
 from datetime import datetime
 import io
+import math
 import re
 from typing import Any
 
@@ -33,6 +34,8 @@ def parse_ngn_amount(raw_val: str | float | int | None) -> float:
     if not match:
         return 0.0
     val = float(match.group(0))
+    if not math.isfinite(val):  # e.g. a 400-digit string overflows to inf
+        return 0.0
     return round(-val if is_negative else val, 2)
 
 
@@ -93,7 +96,8 @@ def infer_channel_and_merchant(narration: str) -> tuple[str, str]:
 
 def parse_bank_csv(csv_text: str, bank_hint: str = "auto") -> list[dict[str, Any]]:
     """Parse CSV exports from GTBank, Access Bank, OPay, or Kuda into normalized records."""
-    reader = csv.DictReader(io.StringIO(csv_text.strip()))
+    # Excel exports often start with a UTF-8 BOM, which would hide the first header (the date).
+    reader = csv.DictReader(io.StringIO(csv_text.strip().lstrip("\ufeff")))
     if not reader.fieldnames:
         return []
 

@@ -111,7 +111,7 @@ flowchart TD
 
 ## API Specifications
 
-Interactive docs at `/docs` once running. Request sizes are bounded (e.g. narration 500 chars, receipt text 10,000, CSV 1,000,000, 5,000 anomaly rows).
+Interactive docs at `/docs` once running. Request sizes are bounded (e.g. narration 500 chars, receipt text 10,000, CSV 1,000,000 characters and 5,000 parsed rows, 5,000 anomaly rows).
 
 | Endpoint | Auth | Purpose |
 |:---|:---|:---|
