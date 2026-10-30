@@ -1,157 +1,155 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import './App.css'
+import {
+  ApiError,
+  getCategories,
+  getForecast,
+  getHealth,
+  getSummary,
+  listExpenses,
+  setApiKey,
+} from './lib/api'
+import SummaryCards from './components/SummaryCards'
+import ExpenseForm from './components/ExpenseForm'
+import ReceiptParser from './components/ReceiptParser'
+import ExpenseList from './components/ExpenseList'
+import ForecastChart from './components/ForecastChart'
+import ThemeToggle from './components/ThemeToggle'
+import { EmptyState, ErrorState, Skeleton } from './components/StatusStates'
 
-function App() {
-  const [transactions, setTransactions] = useState([
-    { id: 1, description: "Salary", amount: "5000", type: "income", category: "salary", date: "2025-01-01" },
-    { id: 2, description: "Rent", amount: "1200", type: "expense", category: "housing", date: "2025-01-02" },
-    { id: 3, description: "Groceries", amount: "150", type: "expense", category: "food", date: "2025-01-03" },
-    { id: 4, description: "Freelance Work", amount: "800", type: "expense", category: "salary", date: "2025-01-05" },
-    { id: 5, description: "Electric Bill", amount: "95", type: "expense", category: "utilities", date: "2025-01-06" },
-    { id: 6, description: "Dinner Out", amount: "65", type: "expense", category: "food", date: "2025-01-07" },
-    { id: 7, description: "Gas", amount: "45", type: "expense", category: "transport", date: "2025-01-08" },
-    { id: 8, description: "Netflix", amount: "15", type: "expense", category: "entertainment", date: "2025-01-10" },
-  ]);
+const PAGE = 50
 
-  const [description, setDescription] = useState("");
-  const [amount, setAmount] = useState("");
-  const [type, setType] = useState("expense");
-  const [category, setCategory] = useState("food");
-  const [filterType, setFilterType] = useState("all");
-  const [filterCategory, setFilterCategory] = useState("all");
+export default function App() {
+  const [status, setStatus] = useState('loading')
+  const [error, setError] = useState('')
+  const [health, setHealth] = useState(null)
+  const [categories, setCategories] = useState([])
+  const [month, setMonth] = useState(null)
+  const [summary, setSummary] = useState(null)
+  const [list, setList] = useState({ items: [], total: 0 })
+  const [forecast, setForecast] = useState({ data: null, error: '' })
+  const [prefill, setPrefill] = useState(null)
 
-  const categories = ["food", "housing", "utilities", "transport", "entertainment", "salary", "other"];
+  const loadForecast = useCallback(async () => {
+    try {
+      setForecast({ data: await getForecast(3), error: '' })
+    } catch (e) {
+      setForecast({
+        data: null,
+        error: e.status === 422 ? 'Need at least 3 months of history' : e.message,
+      })
+    }
+  }, [])
 
-  const totalIncome = transactions
-    .filter(t => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+  const load = useCallback(
+    async (m) => {
+      try {
+        const [h, c, s, l] = await Promise.all([
+          getHealth(),
+          getCategories(),
+          getSummary(m ?? undefined),
+          listExpenses({ month: m ?? undefined, limit: PAGE }),
+        ])
+        setHealth(h)
+        setCategories(c.categories)
+        setSummary(s)
+        setList(l)
+        setStatus('ready')
+        loadForecast()
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : 'Something went wrong')
+        setStatus('error')
+      }
+    },
+    [loadForecast],
+  )
 
-  const totalExpenses = transactions
-    .filter(t => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
+  useEffect(() => {
+    // Deferred so the initial fetch is not a synchronous setState inside the effect body.
+    const t = setTimeout(() => load(null), 0)
+    return () => clearTimeout(t)
+  }, [load])
 
-  const balance = totalIncome - totalExpenses;
-
-  let filteredTransactions = transactions;
-  if (filterType !== "all") {
-    filteredTransactions = filteredTransactions.filter(t => t.type === filterType);
+  const refreshSummary = async (m) => {
+    try {
+      setSummary(await getSummary(m ?? undefined))
+    } catch {
+      /* summary refresh is best-effort; list already updated */
+    }
   }
-  if (filterCategory !== "all") {
-    filteredTransactions = filteredTransactions.filter(t => t.category === filterCategory);
+
+  const onCreated = (row) => {
+    setList((l) => ({ items: [row, ...l.items], total: l.total + 1 }))
+    refreshSummary(month)
+    loadForecast()
   }
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!description || !amount) return;
+  const onMonth = async (m) => {
+    setMonth(m)
+    try {
+      const [s, l] = await Promise.all([getSummary(m), listExpenses({ month: m, limit: PAGE })])
+      setSummary(s)
+      setList(l)
+    } catch (e) {
+      setError(e.message)
+      setStatus('error')
+    }
+  }
 
-    const newTransaction = {
-      id: Date.now(),
-      description,
-      amount,
-      type,
-      category,
-      date: new Date().toISOString().split('T')[0],
-    };
-
-    setTransactions([...transactions, newTransaction]);
-    setDescription("");
-    setAmount("");
-    setType("expense");
-    setCategory("food");
-  };
-
+  const loadMore = async () => {
+    try {
+      const more = await listExpenses({ month: month ?? undefined, limit: PAGE, offset: list.items.length })
+      setList((l) => ({ items: [...l.items, ...more.items], total: more.total }))
+    } catch (e) {
+      setError(e.message)
+    }
+  }
 
   return (
     <div className="app">
-      <h1>Finance Tracker</h1>
-      <p className="subtitle">Track your income and expenses</p>
+      <header className="top">
+        <h1>AIOps Expense Tracker</h1>
+        {health?.demo_data && <span className="pill">Demo data (synthetic)</span>}
+        <label className="key">
+          <span>API key (for adding expenses)</span>
+          <input type="password" autoComplete="off" onChange={(e) => setApiKey(e.target.value)} />
+        </label>
+        <ThemeToggle />
+      </header>
 
-      <div className="summary">
-        <div className="summary-card">
-          <h3>Income</h3>
-          <p className="income-amount">${totalIncome}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Expenses</h3>
-          <p className="expense-amount">${totalExpenses}</p>
-        </div>
-        <div className="summary-card">
-          <h3>Balance</h3>
-          <p className="balance-amount">${balance}</p>
-        </div>
-      </div>
-
-      <div className="add-transaction">
-        <h2>Add Transaction</h2>
-        <form onSubmit={handleSubmit}>
-          <input
-            type="text"
-            placeholder="Description"
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Amount"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-          />
-          <select value={type} onChange={(e) => setType(e.target.value)}>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
-          <select value={category} onChange={(e) => setCategory(e.target.value)}>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-          <button type="submit">Add</button>
-        </form>
-      </div>
-
-      <div className="transactions">
-        <h2>Transactions</h2>
-        <div className="filters">
-          <select value={filterType} onChange={(e) => setFilterType(e.target.value)}>
-            <option value="all">All Types</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
-          <select value={filterCategory} onChange={(e) => setFilterCategory(e.target.value)}>
-            <option value="all">All Categories</option>
-            {categories.map(cat => (
-              <option key={cat} value={cat}>{cat}</option>
-            ))}
-          </select>
-        </div>
-
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Description</th>
-              <th>Category</th>
-              <th>Amount</th>
-
-            </tr>
-          </thead>
-          <tbody>
-            {filteredTransactions.map(t => (
-              <tr key={t.id}>
-                <td>{t.date}</td>
-                <td>{t.description}</td>
-                <td>{t.category}</td>
-                <td className={t.type === "income" ? "income-amount" : "expense-amount"}>
-                  {t.type === "income" ? "+" : "-"}${t.amount}
-                </td>
-
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      {status === 'loading' && <Skeleton rows={4} label="Loading expenses" />}
+      {status === 'error' && <ErrorState message={error} onRetry={() => {
+            setStatus('loading')
+            load(month)
+          }} />}
+      {status === 'ready' && (
+        <main className="grid">
+          <div className="col">
+            <SummaryCards summary={summary} month={month} onMonth={onMonth} />
+            <ExpenseForm categories={categories} prefill={prefill} onCreated={onCreated} />
+            <ReceiptParser onParsed={setPrefill} />
+          </div>
+          <div className="col">
+            {list.items.length === 0 ? (
+              <section className="card">
+                <EmptyState />
+              </section>
+            ) : (
+              <ExpenseList items={list.items} total={list.total} onLoadMore={loadMore} />
+            )}
+            {forecast.data ? (
+              <ForecastChart forecast={forecast.data} demo={Boolean(health?.demo_data)} />
+            ) : (
+              forecast.error && (
+                <section className="card">
+                  <h2>Spend forecast</h2>
+                  <p className="hint">{forecast.error}</p>
+                </section>
+              )
+            )}
+          </div>
+        </main>
+      )}
     </div>
-  );
+  )
 }
-
-export default App

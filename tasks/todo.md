@@ -5,8 +5,8 @@
 - [x] 3 Harden feedback/retrain, bounds, rate limit, CORS
 - [x] 4 SQLite expense store + dashboard endpoints
 - [x] 5 Honest benchmark labels, regenerate artefacts
-- [ ] 6 Frontend tooling (audit fix, vitest)
-- [ ] 7 Real NGN dashboard
+- [x] 6 Frontend tooling (audit fix, vitest)
+- [x] 7 Real NGN dashboard
 - [ ] 8 CI frontend + freshness check
 - [ ] 9 Dockerfiles, compose, .env.example
 - [ ] 10 LICENSE
