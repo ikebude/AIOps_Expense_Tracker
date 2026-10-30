@@ -127,9 +127,13 @@ def render_hero_chart(
             color="#E4E4E7",
             fontsize=9.5,
             fontweight="bold",
+            # Dark backing so labels stay readable where they cross the macro-F1 lines.
+            bbox=dict(facecolor="#121214", edgecolor="none", pad=1.0),
         )
 
     ax1.set_yticks(y_pos)
+    # Empty band under the lowest bar so the legend never covers a bar or its label.
+    ax1.set_ylim(-2.4, len(sorted_cats) - 0.5)
     ax1.set_yticklabels(sorted_cats, color="#E4E4E7", fontsize=10)
     ax1.set_xlim(0.0, 1.12)
     ax1.set_xlabel("Out-of-Time Test F1 Score (150 Holdout Rows)", color="#A1A1AA", fontsize=10.5)
