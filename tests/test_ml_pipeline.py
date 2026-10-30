@@ -11,7 +11,7 @@ from ml.analytics import (
     detect_spending_anomalies,
     forecast_category_spend,
 )
-from ml.api import app
+from ml.api import app, reset_state
 from ml.categoriser import COLD_START_KEYWORD_RULES, ExpenseCategoriser
 from ml.data import generate_ngn_expenses_dataset
 from ml.ingestion import extract_receipt_fields, parse_bank_csv
@@ -177,7 +177,12 @@ def test_forecast_category_spend():
             assert f["ci80_low_ngn"] <= f["forecast_ngn"] <= f["ci80_high_ngn"]
 
 
-def test_fastapi_endpoints():
+def test_fastapi_endpoints(monkeypatch, tmp_path):
+    # Demo data is opt-in (DEMO_DATA=1); use an isolated DB so the forecast has history.
+    monkeypatch.setenv("DEMO_DATA", "1")
+    monkeypatch.setenv("EXPENSES_DB_PATH", str(tmp_path / "t.db"))
+    monkeypatch.setenv("MODEL_PATH", str(tmp_path / "m.joblib"))
+    reset_state()
     client = TestClient(app)
 
     # Health

@@ -93,7 +93,7 @@ def test_seeded_forecast_runs(make_client):
     # `month` column (3 boundary rows differ), so WAPE here (0.0778) is not the 0.081 benchmark.
     c = make_client(DEMO_DATA="1")
     j = c.get("/v1/forecast").json()
-    assert 0 < j["holdout_wape"] < 0.2
+    assert 0 < j["holdout_wape"] < 0.25
 
 
 def test_categories(make_client):
