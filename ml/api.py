@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
+import logging
+import threading
+from contextlib import asynccontextmanager
 from typing import Any
 
 import pandas as pd
@@ -11,36 +13,59 @@ from pydantic import BaseModel, Field
 
 from ml.analytics import detect_spending_anomalies, forecast_category_spend
 from ml.categoriser import ExpenseCategoriser
+from ml.config import get_settings
 from ml.data import generate_ngn_expenses_dataset
 from ml.ingestion import extract_receipt_fields, parse_bank_csv
 
-app = FastAPI(
-    title="AIOps Expense Tracker API",
-    description="NGN-first expense auto-categorisation, receipt OCR parsing, bank CSV ingestion, MAD anomaly detection, and 3-month spend forecasting.",
-    version="1.0.0",
-)
-
 _STATE: dict[str, Any] = {}
+_STATE_LOCK = threading.Lock()
+_BASE_ROWS = 450
+log = logging.getLogger("ml.api")
+
+
+def reset_state() -> None:
+    """Clear cached state (used by tests)."""
+    with _STATE_LOCK:
+        _STATE.clear()
 
 
 def _get_state() -> dict[str, Any]:
-    if "df" not in _STATE:
-        csv_path = Path("data/ngn_expenses_labelled.csv")
-        if csv_path.exists():
-            df = pd.read_csv(csv_path)
-        else:
-            df = generate_ngn_expenses_dataset(n_rows=600, seed=42)
-        _STATE["df"] = df
+    with _STATE_LOCK:
+        if "df" not in _STATE:
+            settings = get_settings()
+            if settings.dataset_path.exists():
+                df = pd.read_csv(settings.dataset_path)
+            else:
+                df = generate_ngn_expenses_dataset(n_rows=600, seed=42)
+            model = None
+            # NOTE: joblib files are pickles; only load from a trusted local path.
+            if settings.model_path.exists():
+                try:
+                    model = ExpenseCategoriser.load(settings.model_path)
+                except Exception:  # noqa: BLE001
+                    log.warning("Model file failed to load; retraining", exc_info=True)
+            if model is None:
+                model = ExpenseCategoriser(confidence_threshold=0.45, random_state=42)
+                model.fit(df.iloc[:_BASE_ROWS])
+                settings.model_path.parent.mkdir(parents=True, exist_ok=True)
+                model.save(settings.model_path)
+            _STATE["df"] = df
+            _STATE["model"] = model
+        return _STATE
 
-        model_path = Path("models/categoriser.joblib")
-        if model_path.exists():
-            model = ExpenseCategoriser.load(model_path)
-        else:
-            model = ExpenseCategoriser(confidence_threshold=0.45, random_state=42)
-            model.fit(df.iloc[:450])
-        _STATE["model"] = model
-    return _STATE
 
+@asynccontextmanager
+async def lifespan(_: FastAPI):
+    _get_state()
+    yield
+
+
+app = FastAPI(
+    title="AIOps Expense Tracker API",
+    description="NGN-first expense auto-categorisation, receipt-text parsing, bank CSV ingestion, MAD anomaly detection, and 3-month spend forecasting.",
+    version="1.0.0",
+    lifespan=lifespan,
+)
 
 class CategoriseItemRequest(BaseModel):
     merchant: str = Field(default="", description="Merchant or beneficiary name")

@@ -33,3 +33,7 @@ htmlcov/
 *.egg-info/
 
 .venv/
+models/*.joblib
+data/*.db
+data/*.db-*
+.env

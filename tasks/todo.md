@@ -1,7 +1,7 @@
 # Build plan — expense workstream (tasks/BUILD_SPEC.md)
 
 - [x] 1 Pin Python deps, CI on 3.13
-- [ ] 2 Untrack model, repo-relative config, startup build
+- [x] 2 Untrack model, repo-relative config, startup build
 - [ ] 3 Harden feedback/retrain, bounds, rate limit, CORS
 - [ ] 4 SQLite expense store + dashboard endpoints
 - [ ] 5 Honest benchmark labels, regenerate artefacts
