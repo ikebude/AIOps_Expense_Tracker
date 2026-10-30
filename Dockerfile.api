@@ -9,4 +9,5 @@ USER app
 ENV EXPENSES_DB_PATH=/data/expenses.db MODEL_PATH=/data/categoriser.joblib
 VOLUME /data
 EXPOSE 8000
-CMD ["uvicorn", "ml.api:app", "--host", "0.0.0.0", "--port", "8000"]
+# --no-proxy-headers: never trust a client-supplied X-Forwarded-For (it would let anyone dodge the per-IP rate limit).
+CMD ["uvicorn", "ml.api:app", "--host", "0.0.0.0", "--port", "8000", "--no-proxy-headers"]
