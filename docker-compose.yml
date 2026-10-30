@@ -3,9 +3,14 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
-    env_file: .env
+    env_file:
+      - path: .env
+        required: false
     environment:
       ALLOWED_ORIGINS: http://localhost:8080
+      # Override the repo-relative paths from .env: /app is root-owned, /data is the volume.
+      EXPENSES_DB_PATH: /data/expenses.db
+      MODEL_PATH: /data/categoriser.joblib
     ports:
       - "8000:8000"
     volumes:
