@@ -2,28 +2,41 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  test:
+  python:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.13'
-        cache: pip
-        
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install -r requirements-dev.txt
-        
-    - name: Run benchmark and tests
-      run: |
-        python -m ml.run_benchmark
-        pytest -q
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+      - name: Regenerate benchmark outputs
+        run: python -m ml.run_benchmark
+      - name: Fail if committed results are stale
+        # img/hero.png is not diffed: font rendering can vary between machines.
+        run: git diff --exit-code -- reports/metrics.json data/ngn_expenses_labelled.csv
+      - name: Tests
+        run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - run: npm audit --audit-level=high

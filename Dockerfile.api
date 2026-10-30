@@ -1,0 +1,12 @@
+FROM python:3.13-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY ml/ ml/
+COPY data/ngn_expenses_labelled.csv data/ngn_expenses_labelled.csv
+RUN useradd --create-home --uid 10001 app && mkdir /data && chown app /data
+USER app
+ENV EXPENSES_DB_PATH=/data/expenses.db MODEL_PATH=/data/categoriser.joblib
+VOLUME /data
+EXPOSE 8000
+CMD ["uvicorn", "ml.api:app", "--host", "0.0.0.0", "--port", "8000"]

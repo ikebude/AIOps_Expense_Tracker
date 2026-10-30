@@ -138,13 +138,16 @@ def seed_rows(rows: list[dict[str, Any]]) -> None:
 
 
 def list_expenses(month: str | None, limit: int, offset: int) -> tuple[list[dict[str, Any]], int]:
-    where, args = ("WHERE substr(date, 1, 7) = ?", [month]) if month else ("", [])
+    order = "ORDER BY date DESC, created_at DESC, id DESC LIMIT ? OFFSET ?"
     with connect() as c:
-        total = c.execute(f"SELECT COUNT(*) FROM expenses {where}", args).fetchone()[0]  # noqa: S608 (fixed fragment)
-        rows = c.execute(
-            f"SELECT * FROM expenses {where} ORDER BY date DESC, created_at DESC, id DESC LIMIT ? OFFSET ?",  # noqa: S608
-            [*args, limit, offset],
-        ).fetchall()
+        if month:
+            total = c.execute("SELECT COUNT(*) FROM expenses WHERE substr(date, 1, 7) = ?", (month,)).fetchone()[0]
+            rows = c.execute(
+                "SELECT * FROM expenses WHERE substr(date, 1, 7) = ? " + order, (month, limit, offset)
+            ).fetchall()
+        else:
+            total = c.execute("SELECT COUNT(*) FROM expenses").fetchone()[0]
+            rows = c.execute("SELECT * FROM expenses " + order, (limit, offset)).fetchall()
     return [_row_to_expense(r) for r in rows], total
 
 
