@@ -5,16 +5,26 @@ from __future__ import annotations
 import logging
 import threading
 from contextlib import asynccontextmanager
-from typing import Any
+import time
+from typing import Any, Literal
 
 import pandas as pd
-from fastapi import FastAPI
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Query
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from ml.analytics import detect_spending_anomalies, forecast_category_spend
 from ml.categoriser import ExpenseCategoriser
 from ml.config import get_settings
-from ml.data import generate_ngn_expenses_dataset
+from ml import store
+from ml.data import CATEGORIES, generate_ngn_expenses_dataset
+from ml.security import (
+    limiter,
+    rate_limit_default,
+    rate_limit_feedback,
+    require_api_key,
+)
 from ml.ingestion import extract_receipt_fields, parse_bank_csv
 
 _STATE: dict[str, Any] = {}
@@ -27,6 +37,7 @@ def reset_state() -> None:
     """Clear cached state (used by tests)."""
     with _STATE_LOCK:
         _STATE.clear()
+    limiter.reset()
 
 
 def _get_state() -> dict[str, Any]:
@@ -67,41 +78,52 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=get_settings().allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type", "X-API-Key"],
+    allow_credentials=False,
+)
+
+
+Category = Literal[tuple(CATEGORIES)]  # type: ignore[valid-type]
+
+
 class CategoriseItemRequest(BaseModel):
-    merchant: str = Field(default="", description="Merchant or beneficiary name")
-    narration: str = Field(..., description="Bank statement narration or expense description")
-    channel: str = Field(default="POS", description="Payment channel: POS, NIP, USSD, WEB, BANK_FEE")
-    bank: str = Field(default="GTBank", description="Bank or wallet name")
+    merchant: str = Field(default="", max_length=120, description="Merchant or beneficiary name")
+    narration: str = Field(..., min_length=1, max_length=500, description="Bank statement narration or expense description")
+    channel: str = Field(default="POS", max_length=120, description="Payment channel: POS, NIP, USSD, WEB, BANK_FEE")
+    bank: str = Field(default="GTBank", max_length=120, description="Bank or wallet name")
 
 
-class FeedbackItemRequest(BaseModel):
-    merchant: str = Field(default="", description="Merchant name")
-    narration: str = Field(..., description="Bank narration string")
-    channel: str = Field(default="POS", description="Channel")
-    bank: str = Field(default="GTBank", description="Bank")
-    true_category: str = Field(..., description="User-corrected category label")
+class FeedbackItemRequest(CategoriseItemRequest):
+    true_category: Category = Field(..., description="User-corrected category label")
 
 
 class ReceiptParseRequest(BaseModel):
-    raw_text: str = Field(..., description="Raw OCR text extracted from receipt or POS slip")
+    raw_text: str = Field(
+        ..., min_length=1, max_length=10_000,
+        description="Raw receipt text (e.g. pasted or from an external OCR tool)",
+    )
 
 
 class CsvImportRequest(BaseModel):
-    csv_text: str = Field(..., description="Raw CSV content from GTBank, Access, OPay, or Kuda")
-    bank_hint: str = Field(default="auto", description="Bank format hint or 'auto'")
+    csv_text: str = Field(..., max_length=1_000_000, description="Raw CSV content from GTBank, Access, OPay, or Kuda")
+    bank_hint: str = Field(default="auto", max_length=60, description="Bank format hint or 'auto'")
 
 
 class AnomalyTxItem(BaseModel):
-    tx_id: str = "TX-1"
-    date: str = "2026-02-15"
-    merchant: str = ""
-    narration: str = ""
-    category: str
-    amount_ngn: float
+    tx_id: str = Field(default="TX-1", max_length=60)
+    date: str = Field(default="2026-02-15", max_length=20)
+    merchant: str = Field(default="", max_length=120)
+    narration: str = Field(default="", max_length=500)
+    category: Category
+    amount_ngn: float = Field(..., gt=0, le=1e10)
 
 
 class AnomalyDetectRequest(BaseModel):
-    transactions: list[AnomalyTxItem]
+    transactions: list[AnomalyTxItem] = Field(..., max_length=5000)
     z_threshold: float = Field(default=2.5, ge=1.0, le=10.0)
 
 
@@ -116,7 +138,7 @@ def health_check() -> dict[str, Any]:
     }
 
 
-@app.post("/v1/categorise")
+@app.post("/v1/categorise", dependencies=[Depends(rate_limit_default)])
 def categorise_expense(req: CategoriseItemRequest) -> dict[str, Any]:
     state = _get_state()
     model: ExpenseCategoriser = state["model"]
@@ -128,37 +150,73 @@ def categorise_expense(req: CategoriseItemRequest) -> dict[str, Any]:
     )
 
 
-@app.post("/v1/categorise/feedback")
-def categorise_feedback(req: FeedbackItemRequest) -> dict[str, Any]:
-    state = _get_state()
-    model: ExpenseCategoriser = state["model"]
-    base_df: pd.DataFrame = state["df"].iloc[:450]
-    corr_df = pd.DataFrame(
-        [
-            {
-                "merchant": req.merchant,
-                "narration": req.narration,
-                "channel": req.channel,
-                "bank": req.bank,
-                "category": req.true_category,
-            }
-        ]
-    )
-    model.fit_with_corrections(base_df, corr_df, correction_weight=5.0)
-    updated = model.predict_one(
-        merchant=req.merchant,
-        narration=req.narration,
-        channel=req.channel,
-        bank=req.bank,
-    )
-    return {
-        "status": "retrained",
-        "corrections_count": len(model.correction_history),
-        "updated_prediction": updated,
-    }
+_RETRAIN_LOCK = threading.Lock()
 
 
-@app.post("/v1/receipt/parse")
+def retrain_from_queue() -> dict[str, Any]:
+    """Build a NEW model from base rows + every accepted correction, then swap it in.
+
+    The live model is never mutated in place; on failure it is kept and the
+    pending corrections stay queued.
+    """
+    if not _RETRAIN_LOCK.acquire(blocking=False):
+        return {"status": "busy"}
+    try:
+        corrections = store.all_corrections()
+        if not any(not c["applied"] for c in corrections):
+            return {"status": "noop", "corrections_used": 0}
+        started = time.monotonic()
+        state = _get_state()
+        corr_df = pd.DataFrame(corrections)[["merchant", "narration", "channel", "bank", "category"]]
+        new_model = ExpenseCategoriser(confidence_threshold=0.45, random_state=42)
+        try:
+            new_model.fit_with_corrections(state["df"].iloc[:_BASE_ROWS], corr_df, correction_weight=5.0)
+            new_model.save(get_settings().model_path)
+        except Exception:  # noqa: BLE001
+            log.exception("Retrain failed; previous model kept")
+            return {"status": "failed"}
+        with _STATE_LOCK:
+            _STATE["model"] = new_model
+        store.mark_applied(max(c["id"] for c in corrections))
+        return {
+            "status": "retrained",
+            "corrections_used": len(corrections),
+            "duration_ms": int((time.monotonic() - started) * 1000),
+        }
+    finally:
+        _RETRAIN_LOCK.release()
+
+
+@app.post(
+    "/v1/categorise/feedback",
+    status_code=202,
+    dependencies=[Depends(require_api_key), Depends(rate_limit_feedback)],
+)
+def categorise_feedback(req: FeedbackItemRequest, background: BackgroundTasks) -> dict[str, Any]:
+    _get_state()
+    pending = store.add_correction(req.merchant, req.narration, req.channel, req.bank, req.true_category)
+    batch = get_settings().feedback_batch_size
+    status = "queued"
+    if pending >= batch:
+        background.add_task(retrain_from_queue)
+        status = "queued_retrain_scheduled"
+    return {"status": status, "pending_count": pending, "batch_size": batch}
+
+
+@app.post(
+    "/v1/categorise/retrain",
+    dependencies=[Depends(require_api_key), Depends(rate_limit_feedback)],
+)
+def categorise_retrain() -> Any:
+    result = retrain_from_queue()
+    if result["status"] == "busy":
+        return JSONResponse({"detail": "A retrain is already running"}, status_code=409)
+    if result["status"] == "failed":
+        return JSONResponse({"detail": "Retrain failed; previous model kept"}, status_code=500)
+    return result
+
+
+@app.post("/v1/receipt/parse", dependencies=[Depends(rate_limit_default)])
 def parse_receipt_endpoint(req: ReceiptParseRequest) -> dict[str, Any]:
     parsed = extract_receipt_fields(req.raw_text)
     state = _get_state()
@@ -173,7 +231,10 @@ def parse_receipt_endpoint(req: ReceiptParseRequest) -> dict[str, Any]:
     return parsed
 
 
-@app.post("/v1/csv/import")
+@app.post(
+    "/v1/csv/import",
+    dependencies=[Depends(require_api_key), Depends(rate_limit_default)],
+)
 def import_bank_csv_endpoint(req: CsvImportRequest) -> dict[str, Any]:
     rows = parse_bank_csv(req.csv_text, bank_hint=req.bank_hint)
     state = _get_state()
@@ -193,7 +254,7 @@ def import_bank_csv_endpoint(req: CsvImportRequest) -> dict[str, Any]:
     }
 
 
-@app.post("/v1/anomalies")
+@app.post("/v1/anomalies", dependencies=[Depends(rate_limit_default)])
 def detect_anomalies_endpoint(req: AnomalyDetectRequest) -> dict[str, Any]:
     state = _get_state()
     base_df: pd.DataFrame = state["df"]
@@ -215,6 +276,6 @@ def detect_anomalies_endpoint(req: AnomalyDetectRequest) -> dict[str, Any]:
 
 
 @app.get("/v1/forecast")
-def get_spend_forecast(horizon_months: int = 3) -> dict[str, Any]:
+def get_spend_forecast(horizon_months: int = Query(3, ge=1, le=12)) -> dict[str, Any]:
     state = _get_state()
     return forecast_category_spend(state["df"], horizon_months=horizon_months)

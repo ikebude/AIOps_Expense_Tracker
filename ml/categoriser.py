@@ -298,9 +298,11 @@ class ExpenseCategoriser:
         combined = pd.concat([base_df, corrections_df], ignore_index=True)
         weights = np.ones(len(combined), dtype=float)
         weights[len(base_df) :] = correction_weight
+        self.fit(combined, sample_weight=weights)
+        # Record history only after a successful fit so a failed fit leaves no trace.
         for row in corrections_df.to_dict(orient="records"):
             self.correction_history.append(row)
-        return self.fit(combined, sample_weight=weights)
+        return self
 
     def predict_one(
         self,
