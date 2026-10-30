@@ -110,7 +110,7 @@ def _ets_forecast_series(
     beta: float = 0.15,
     phi: float = 0.85,
 ) -> tuple[np.ndarray, float]:
-    """Damped Holt-Winters / ETS (level + damped trend) forecaster for monthly spend series.
+    """Level + damped-trend exponential smoothing forecaster for monthly spend series.
 
     Returns `(forecast_array, residual_std)`.
     """
@@ -146,7 +146,11 @@ def _ets_forecast_series(
 
 
 def forecast_category_spend(df: pd.DataFrame, horizon_months: int = 3) -> dict[str, Any]:
-    """Compute 3-month category & total NGN spend forecast plus holdout backtest MAE & WAPE."""
+    """Compute 3-month category & total NGN spend forecast plus holdout backtest MAE & WAPE.
+
+    Model: level + damped-trend exponential smoothing with a fixed December x1.14 index;
+    holdout actuals exclude MAD-flagged spikes. Baseline: naive last value.
+"""
     work = df.copy()
     if "month" not in work.columns:
         work["month"] = pd.to_datetime(work["date"]).dt.strftime("%Y-%m")
@@ -243,14 +247,14 @@ def forecast_category_spend(df: pd.DataFrame, horizon_months: int = 3) -> dict[s
     }
 
     return {
-        "model": "Damped_Holt_Winters_ETS",
+        "model": "damped_trend_ets_fixed_dec_index",
         "horizon_months": horizon_months,
         "future_months": future_months,
         "holdout_months_evaluated": holdout_k,
         "holdout_mae_ngn": mae_ngn,
         "holdout_wape": wape,
-        "baseline_seasonal_naive_mae_ngn": naive_mae_ngn,
-        "baseline_seasonal_naive_wape": naive_wape,
+        "baseline_naive_last_value_mae_ngn": naive_mae_ngn,
+        "baseline_naive_last_value_wape": naive_wape,
         "historical_monthly_total_ngn": historical_totals,
         "forecast_monthly_total_ngn": monthly_totals_forecast,
         "category_forecasts": category_forecasts,

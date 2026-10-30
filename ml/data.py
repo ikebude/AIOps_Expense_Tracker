@@ -1,4 +1,4 @@
-"""Deterministic Nigerian NGN personal & SME expense dataset and OCR receipt benchmark generator."""
+"""Deterministic Nigerian NGN personal & SME expense dataset and receipt-text benchmark generator."""
 
 from __future__ import annotations
 

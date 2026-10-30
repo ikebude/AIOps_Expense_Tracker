@@ -1,4 +1,4 @@
-"""Nigerian Bank CSV Statement Importer (GTBank, Access, OPay, Kuda, Moniepoint) & Receipt OCR Parser."""
+"""Nigerian Bank CSV Statement Importer (GTBank, Access, OPay, Kuda) & Receipt Text Parser."""
 
 from __future__ import annotations
 
@@ -92,7 +92,7 @@ def infer_channel_and_merchant(narration: str) -> tuple[str, str]:
 
 
 def parse_bank_csv(csv_text: str, bank_hint: str = "auto") -> list[dict[str, Any]]:
-    """Parse CSV exports from GTBank, Access Bank, OPay, Kuda, or Moniepoint into normalized records."""
+    """Parse CSV exports from GTBank, Access Bank, OPay, or Kuda into normalized records."""
     reader = csv.DictReader(io.StringIO(csv_text.strip()))
     if not reader.fieldnames:
         return []
@@ -190,7 +190,7 @@ def parse_bank_csv(csv_text: str, bank_hint: str = "auto") -> list[dict[str, Any
 
 
 def extract_receipt_fields(raw_text: str) -> dict[str, Any]:
-    """Parse noisy OCR text from a Nigerian receipt/POS slip into structured fields.
+    """Parse noisy receipt text (pasted or from an external OCR tool; this code does no OCR) from a Nigerian receipt/POS slip into structured fields.
 
     Returns `{merchant, date, total_ngn, vat_ngn, payment_channel, confidence}`.
     """
