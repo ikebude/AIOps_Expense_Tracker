@@ -8,6 +8,8 @@
   --accent-2: #b45309;
   --danger: #b91c1c;
   --on-accent: #ffffff;
+  --on-accent-2: #ffffff;
+  --on-danger: #ffffff;
   color-scheme: light dark;
 }
 @media (prefers-color-scheme: dark) {
@@ -21,6 +23,8 @@
     --accent-2: #fbbf24;
     --danger: #f87171;
     --on-accent: #06201d;
+    --on-accent-2: #111111;
+    --on-danger: #111111;
   }
 }
 :root[data-theme='dark'] {
@@ -33,6 +37,8 @@
   --accent-2: #fbbf24;
   --danger: #f87171;
   --on-accent: #06201d;
+  --on-accent-2: #111111;
+  --on-danger: #111111;
 }
 * { box-sizing: border-box; }
 body {
