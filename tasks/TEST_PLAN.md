@@ -109,4 +109,35 @@ Screenshot command template:
 
 ## Tester findings
 
-(Tester: append findings here.)
+Tester run 2026-10-30 on top of `15de125`. Verdict: **PASS-WITH-NOTES**.
+
+### Results
+- A1 authored by ikebude, 2 trailers each. Note: builder commits carry a different `Co-Authored-By` model than RULES.md; history not rewritten (RULES 1). Model names removed from tasks/*.md.
+- A2 pins resolve in a fresh venv (Python 3.13.17). A3 pytest **32 passed** (30 + 2 tester regressions), no InconsistentVersionWarning. A4 benchmark twice, sha256 identical, `git diff --exit-code` 0.
+- A5 lint clean, vitest **29 passed**, build OK. A6 `npm audit` 0. A7 vitest 5.0.5 / jsdom 29.1.1. A9–A12 OK.
+- **A8 failed before fix**: `docker compose config` errored without `.env` (fixed, see below).
+- B: every metrics.json value equals the planner's table; no `seasonal_naive|receipt_ocr|Holt`.
+- Stale-artefact check: committed `macro_f1` tampered 0.9204→0.9504 in a scratch clone; regenerate + `git diff --exit-code` → **exit 1**. Works. README numbers themselves are not machine-checked (verified by hand, table F all match).
+- C1 503 ×4; C2/C3 all 401 (none, wrong, empty, query, Bearer, prefix, longer, case, unicode); C4 `NOT_A_CATEGORY`/""/lowercase → 422, categorise still "Feeding & Groceries" conf 0.815; C5 202 in 24 ms; C6 6th → 429 `Retry-After: 60`; C8 all 422 (50 MB body 422 in 0.2 s, 100k-deep JSON 400); C9/C10/C11 422; C12 SQLi on every field stored literally, no f-string SQL; C13 covered by test (0.1+0.2 == 0.3, INTEGER kobo); C14 evil origin/preflight gets no ACAO, allowed origin echoed, `null` origin refused, no credentials; C15 OK from /tmp; C16 OK.
+- D (real stack: uvicorn DEMO_DATA=1 + built frontend + Playwright, 390/1280 × light/dark + 320): loading skeleton (aria-busy), error + Retry recovers, empty state, populated, receipt parse prefills (date, merchant, ₦18,750, 72% suggestion), add expense with key → row with "auto" tag, without key → "Invalid or missing API key". No horizontal scroll at 320/390/1280. XSS narration renders literally, 0 dialogs, 0 `<img>`. axe-core: **0 violations** in all four combos.
+
+### Fixed by the tester
+1. **High** `docker-compose.yml`: `.env` copied from `.env.example` overrode the image's `/data` paths with repo-relative ones → non-root API writes to root-owned `/app` (crash) and data lives outside the volume; `docker compose config` failed with no `.env`. Now `.env` optional and paths pinned to `/data` (78cb723).
+2. **Medium** `ml/api.py`: raw JSON `1e400` → 500 (default 422 handler cannot serialise `inf`). Custom handler returns type/loc/msg, no input echo (45e8d48, test added).
+3. **Medium** `/v1/csv/import`: field >131072 chars → unhandled `csv.Error` 500 → now 422; 15k rows took 85 s in one request → 5,000-row cap; 400-digit amount → `amount_ngn: null` → row skipped; UTF-8 BOM hid the date header so rows silently got today's date → BOM stripped (45e8d48, test added).
+4. **Low/UI** forecast axis text ~5 px at 390 px and no y scale → ₦ y bounds, two-line month labels; amounts not tabular; table dates wrapped; dark "Unusual" badge 2.8:1 and light demo pill 3.8:1 contrast → 6.8:1 / 5.0:1 (8309e31).
+5. **Low** hero.png legend covered the Rent & Housing "0.80" label (8539231). README test counts 30→32; `/v1/anomalies` baseline wording corrected (1c7115d).
+
+### Open findings (not fixed)
+| Sev | Where | Finding |
+|---|---|---|
+| Medium | `ml/security.py:51` + uvicorn defaults | uvicorn trusts `X-Forwarded-For` from 127.0.0.1, so any client reaching the API via localhost (or a same-host proxy that forwards client XFF) bypasses the per-IP limiter by spoofing XFF (reproduced: 62×429, then spoofed XFF → 200). Run with `--forwarded-allow-ips` set to the real proxy, or `--no-proxy-headers` when exposed directly. |
+| Low | `ml/api.py` `list_expenses`, `get_summary`, `get_forecast` | GET endpoints are not rate-limited, and `/v1/expenses` recomputes MAD stats over the whole store on every call (cost grows with the store). |
+| Low | `ml/security.py:34` | Limiter keeps one deque per distinct client key forever (unbounded memory with many IPs). |
+| Low | `ml/ingestion.py` `normalize_date_str` | Unparseable CSV dates pass through as-is (`99-Foo-2026`) and missing dates become today; duplicate headers silently use one column. Should flag rows instead. |
+| Low | `src/components/ExpenseForm.jsx:5` | Default date uses UTC (`toISOString`): in Lagos 00:00–01:00 it pre-fills yesterday. |
+| Low | `src/App.jsx` `onCreated` | New row is prepended regardless of date order or the selected month filter. |
+| Low | `deploy/nginx.conf`, Dockerfiles | No security headers (CSP, X-Content-Type-Options), no HEALTHCHECK; base images tag-pinned, not digest-pinned. Images not built (no daemon). |
+| Info | `/v1/csv/import` | Formula-injection payloads (`=HYPERLINK`, `+cmd`, `@SUM`) are returned verbatim in JSON. Safe today (no CSV/XLSX export, React escapes); escape leading `= + - @` if an export is ever added. NUL and U+202E bidi characters are stored as given. |
+| Info | E1 | External links (shields.io, docs sites, CI badge) unreachable through this sandbox's proxy; repo URL returns 200. CI not run on GitHub. |
+

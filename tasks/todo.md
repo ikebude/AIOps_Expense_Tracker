@@ -23,3 +23,6 @@ Final verification (2026-10-30):
 - No .joblib/.db/.env tracked; no dangerouslySetInnerHTML or f-string SQL.
 - Not verified here: a live browser run of the dashboard (component tests with mocked fetch only), CI on GitHub.
 - Deviations: see tasks/BUILD_SPEC.md "Builder notes" (DEMO_DATA opt-in, wider API-key auth, calendar-date vs `month` bucketing, different attribution trailer, items 6-7 and 8-10 committed together, item 4 pushed once with 2 red tests then fixed).
+
+## Tester review (2026-10-30)
+Verdict PASS-WITH-NOTES. pytest 32 passed, vitest 29 passed, lint clean, build OK, npm audit 0, compose config OK, artefacts fresh (sha256 identical twice), stale check proven to fail on a tampered number. Full stack driven in Playwright at 320/390/1280 light+dark, axe 0 violations. Fixes: 78cb723, 45e8d48, 8309e31, 8539231, 1c7115d. Open findings in tasks/TEST_PLAN.md "Tester findings".
