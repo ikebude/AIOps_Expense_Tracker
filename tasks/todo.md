@@ -26,3 +26,11 @@ Final verification (2026-10-30):
 
 ## Tester review (2026-10-30)
 Verdict PASS-WITH-NOTES. pytest 32 passed, vitest 29 passed, lint clean, build OK, npm audit 0, compose config OK, artefacts fresh (sha256 identical twice), stale check proven to fail on a tampered number. Full stack driven in Playwright at 320/390/1280 light+dark, axe 0 violations. Fixes: 78cb723, 45e8d48, 8309e31, 8539231, 1c7115d. Open findings in tasks/TEST_PLAN.md "Tester findings".
+
+## Audit plan (2026-11-01, branch audit-2026-11-01)
+Owner check-in not possible during the audit run; the plan follows the org audit brief and this repo's CLAUDE.md. Findings go to tasks/AUDIT_2026-11-01.md.
+- [ ] Baseline: pytest, vitest, lint, build, npm audit, pip-audit, benchmark freshness
+- [ ] Security probe: API key, rate limit, CORS, CSV/receipt parsing limits, feedback/retrain abuse
+- [ ] UX: dashboard at 390 and 1280, light and dark (preinstalled Chromium), look at screenshots
+- [ ] Docs: README (2-minute read, course-starter origin stated, synthetic labels), POST_X/POST_LINKEDIN accuracy
+- [ ] Fix confirmed issues with tests; re-run everything; write audit report and lessons
