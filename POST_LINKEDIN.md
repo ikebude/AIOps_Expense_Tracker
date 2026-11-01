@@ -17,7 +17,7 @@ I rebuilt an expense tracker around that problem: **AIOps Expense Tracker**. Imp
 
 2. **Ingestion**
    - CSV parsers for GTBank, Access Bank, OPay and Kuda (5/5 smoke-test rows, one tiny sample per format).
-   - A regex parser for pasted receipt text: 97.5% field exact match (195/200 fields) on 40 synthetic receipts. It parses text, not images; there is no OCR.
+   - A regex parser for pasted receipt text: 97.5% field exact match (195/200 fields) on 40 synthetic receipts from my own generator, so it is a regression check rather than proof it generalises. It parses text, not images; there is no OCR.
 
 3. **Per-category MAD anomaly detection**
    - Median absolute deviation per category avoids rent-style outliers skewing the baseline.

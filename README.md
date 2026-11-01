@@ -1,6 +1,6 @@
 # AIOps Expense Tracker: NGN-First ML Categoriser, Receipt-Text Parser & Spend Forecaster
 
-> **Note on Origin & Pedigree:** Started from the Code with Mosh Claude Code course starter; rebuilt and extended by Precious Ikebude with NGN bank CSV ingestion, TF-IDF + Logistic Regression auto-categorisation, receipt-text parsing, MAD z-score anomaly detection, and damped-trend exponential-smoothing spend forecasting.
+> **Origin:** Started from the Code with Mosh Claude Code course starter; rebuilt and extended by Precious Ikebude with NGN bank CSV ingestion, TF-IDF + Logistic Regression auto-categorisation, receipt-text parsing, MAD z-score anomaly detection, and damped-trend exponential-smoothing spend forecasting.
 
 [![CI](https://github.com/ikebude/AIOps_Expense_Tracker/actions/workflows/ci.yml/badge.svg)](https://github.com/ikebude/AIOps_Expense_Tracker/actions/workflows/ci.yml)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.162-009688.svg?logo=fastapi)](https://fastapi.tiangolo.com)
@@ -18,6 +18,12 @@ A personal and small-business expense tracker for Naira (NGN) bank data. Generic
 4. **Spend forecast**: level + damped-trend exponential smoothing with a fixed December x1.14 index (no estimated seasonal component), 3-month horizon.
 5. **Dashboard**: expenses only (no income tracking, because the ML pipeline has no income model), NGN formatting, light/dark theme, mobile-first.
 
+**Skills shown:** text classification with honest evaluation (chronological split, bootstrap CIs, rules baseline, calibration), robust statistics, time-series forecasting with a naive baseline, API security basics (fail-closed keys, rate limits, input bounds), and a tested React front end. Python, scikit-learn, pandas, FastAPI, SQLite, React, Vite, Vitest, pytest, Docker, GitHub Actions.
+
+![Dashboard at 1280 px, light theme, synthetic demo data](img/dashboard.png)
+
+*Dashboard with the synthetic demo data (`DEMO_DATA=1`). The forecast card shows the backtest WAPE computed on that data, which is why it can differ from the benchmark figure below.*
+
 ---
 
 ## Benchmark Metrics
@@ -32,7 +38,7 @@ Reproduce with `python -m ml.run_benchmark`; results land in `reports/metrics.js
 | **Calibration (ECE)** | **0.1486** | Calibration is imperfect; treat confidences as rough |
 | **5-fold CV macro-F1** | **0.9301 +/- 0.0231** | CV accuracy `93.00%` |
 | **Rule fallback rate (test)** | **2.00%** | |
-| **Receipt-text parsing** | **97.5%** field exact match (195/200) | 40 synthetic receipts; full-receipt match 92.5% (37/40); merchant 100%, date 100%, total 100%, VAT 92.5%, channel 95% |
+| **Receipt-text parsing** | **97.5%** field exact match (195/200) | 40 synthetic receipts from the same generator the parser was written against, so treat this as a regression check, not generalisation; full-receipt match 92.5% (37/40); merchant 100%, date 100%, total 100%, VAT 92.5%, channel 95% |
 | **Bank CSV smoke test** | **5/5 rows parsed** | 4 formats (GTBank, Access, OPay, Kuda), one tiny sample each |
 | **Forecast holdout** | **WAPE 8.1%** (MAE N21,761.02) | vs naive last-value WAPE 11.22% (MAE N30,146.36); 2-month holdout; actuals exclude MAD-flagged spikes |
 
@@ -128,7 +134,7 @@ Interactive docs at `/docs` once running. Request sizes are bounded (e.g. narrat
 | `POST /v1/categorise/feedback` | `X-API-Key` | queue a correction (202); a background retrain is scheduled when `FEEDBACK_BATCH_SIZE` corrections are pending |
 | `POST /v1/categorise/retrain` | `X-API-Key` | retrain now from queued corrections; builds a new model and swaps it in only on success |
 
-**Auth model:** single-user. Write and import endpoints need the `EXPENSE_API_KEY` secret in an `X-API-Key` header. If it is not configured those endpoints return 503 (fail closed); a wrong key returns 401. Reads are open. This is not multi-user auth. Rate limits are in-process per client IP (`RATE_LIMIT_PER_MINUTE`, `FEEDBACK_RATE_LIMIT_PER_MINUTE`); behind a reverse proxy the client IP is the proxy, so rate-limit at the proxy as well. The Docker image starts uvicorn with `--no-proxy-headers` so a spoofed `X-Forwarded-For` cannot dodge the limit; if you run a trusted proxy in front and want real client IPs, replace that flag with `--forwarded-allow-ips <proxy-ip>`. CORS allows only `ALLOWED_ORIGINS`. All variables are listed in `.env.example`.
+**Auth model:** single-user. Write and import endpoints need the `EXPENSE_API_KEY` secret in an `X-API-Key` header. If it is not configured those endpoints return 503 (fail closed); a wrong key returns 401. Reads are open, so anyone who can reach the API can list stored expenses: keep it on localhost or behind your own access control if it holds real data. This is not multi-user auth. Rate limits are in-process per client IP (`RATE_LIMIT_PER_MINUTE`, `FEEDBACK_RATE_LIMIT_PER_MINUTE`); behind a reverse proxy the client IP is the proxy, so rate-limit at the proxy as well. The Docker image starts uvicorn with `--no-proxy-headers` so a spoofed `X-Forwarded-For` cannot dodge the limit; if you run a trusted proxy in front and want real client IPs, replace that flag with `--forwarded-allow-ips <proxy-ip>`. CORS allows only `ALLOWED_ORIGINS`. All variables are listed in `.env.example`.
 
 The per-category `ci80_*` fields in the forecast are +/-1.28 sigma of in-sample residuals, not a calibrated prediction interval.
 
@@ -169,18 +175,18 @@ Set `VITE_API_BASE` (default `http://localhost:8000`) at build time. The dashboa
 AIOps_Expense_Tracker/
 ├── .github/workflows/ci.yml       # Python (benchmark freshness + pytest) and frontend (lint, test, build, audit) jobs
 ├── data/ngn_expenses_labelled.csv # 600-row synthetic NGN dataset
-├── img/hero.png                   # 2-panel evaluation chart
+├── img/hero.png, img/dashboard.png # evaluation chart, dashboard screenshot
 ├── ml/                            # api, config, security, store, categoriser, analytics, ingestion, data, run_benchmark
 ├── models/.gitkeep                # model built at startup, not committed
 ├── reports/metrics.json           # benchmark results
 ├── src/                           # React + Vite dashboard (components, lib, tests)
-├── tests/                         # pytest: 32 tests
+├── tests/                         # pytest: 39 tests
 ├── Dockerfile.api, Dockerfile.web, docker-compose.yml, deploy/nginx.conf
 ├── requirements.txt, requirements-dev.txt, .env.example
 └── LICENSE
 ```
 
-Tests: 32 pytest tests and 29 vitest tests pass.
+Tests: 39 pytest tests and 29 vitest tests pass.
 
 ---
 
