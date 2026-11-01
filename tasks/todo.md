@@ -29,8 +29,13 @@ Verdict PASS-WITH-NOTES. pytest 32 passed, vitest 29 passed, lint clean, build O
 
 ## Audit plan (2026-11-01, branch audit-2026-11-01)
 Owner check-in not possible during the audit run; the plan follows the org audit brief and this repo's CLAUDE.md. Findings go to tasks/AUDIT_2026-11-01.md.
-- [ ] Baseline: pytest, vitest, lint, build, npm audit, pip-audit, benchmark freshness
-- [ ] Security probe: API key, rate limit, CORS, CSV/receipt parsing limits, feedback/retrain abuse
-- [ ] UX: dashboard at 390 and 1280, light and dark (preinstalled Chromium), look at screenshots
-- [ ] Docs: README (2-minute read, course-starter origin stated, synthetic labels), POST_X/POST_LINKEDIN accuracy
-- [ ] Fix confirmed issues with tests; re-run everything; write audit report and lessons
+- [x] Baseline: pytest, vitest, lint, build, npm audit, pip-audit, benchmark freshness
+- [x] Security probe: API key, rate limit, CORS, CSV/receipt parsing limits, feedback/retrain abuse
+- [x] UX: dashboard at 390 and 1280, light and dark (preinstalled Chromium), look at screenshots
+- [x] Docs: README (2-minute read, course-starter origin stated, synthetic labels), POST_X/POST_LINKEDIN accuracy
+- [x] Fix confirmed issues with tests; re-run everything; write audit report and lessons
+
+### Audit review (2026-11-01)
+pytest 32 -> 39 passed; vitest 29 passed; lint clean; build OK; npm audit: 0 prod, 6 moderate dev-only (no fix); pip-audit clean; benchmark artefacts byte-identical after all changes.
+Fixed: receipt-parser ReDoS (unauthenticated, >15 s per request), per-row CSV classification (~28 s for 5,000 rows), forecast buried below the list, README test counts and receipt caveat, dashboard screenshot.
+Open and owner decisions: see tasks/AUDIT_2026-11-01.md.
