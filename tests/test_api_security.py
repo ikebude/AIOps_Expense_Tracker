@@ -112,3 +112,25 @@ def test_cors_allowlist(make_client):
     assert "access-control-allow-origin" not in evil.headers
     ok = c.get("/health", headers={"Origin": "http://localhost:5173"})
     assert ok.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_csv_import_of_5000_rows_is_batched(make_client):
+    # Audit 2026-11-01: rows were classified one predict_proba call at a time (~28 s for 5,000).
+    import time
+
+    from ml.categoriser import ExpenseCategoriser
+    from ml.data import generate_ngn_expenses_dataset
+
+    df = generate_ngn_expenses_dataset(n_rows=600, seed=42)
+    model = ExpenseCategoriser(confidence_threshold=0.45, random_state=42).fit(df.iloc[:450])
+    rows = df.iloc[450:].to_dict(orient="records")
+    assert model.predict_many(rows) == [
+        model.predict_one(str(r["merchant"]), str(r["narration"]), str(r["channel"]), str(r["bank"])) for r in rows
+    ]
+
+    c = make_client(EXPENSE_API_KEY="k" * 32, RATE_LIMIT_PER_MINUTE=1000)
+    csv_text = "Remarks,Debit\n" + "POS PUR SHOPRITE LEKKI,1500\n" * 5000
+    t0 = time.monotonic()
+    r = c.post("/v1/csv/import", json={"csv_text": csv_text}, headers={"X-API-Key": "k" * 32})
+    assert r.status_code == 200 and r.json()["imported_count"] == 5000
+    assert time.monotonic() - t0 < 10

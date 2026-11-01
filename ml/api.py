@@ -34,7 +34,7 @@ from ml.ingestion import extract_receipt_fields, parse_bank_csv
 _STATE: dict[str, Any] = {}
 _STATE_LOCK = threading.Lock()
 _BASE_ROWS = 450
-MAX_CSV_ROWS = 5000  # each row is classified synchronously (~5 ms); bounds request time
+MAX_CSV_ROWS = 5000  # rows are classified in one batch; bounds request time and response size
 log = logging.getLogger("ml.api")
 
 
@@ -261,15 +261,7 @@ def import_bank_csv_endpoint(req: CsvImportRequest) -> dict[str, Any]:
         raise HTTPException(422, f"CSV has {len(rows)} rows; the limit is {MAX_CSV_ROWS} per request")
     state = _get_state()
     model: ExpenseCategoriser = state["model"]
-    enriched: list[dict[str, Any]] = []
-    for r in rows:
-        pred = model.predict_one(
-            merchant=r["merchant"],
-            narration=r["narration"],
-            channel=r["channel"],
-            bank=r["bank"],
-        )
-        enriched.append({**r, **pred})
+    enriched = [{**r, **pred} for r, pred in zip(rows, model.predict_many(rows))]
     return {
         "imported_count": len(enriched),
         "transactions": enriched,
