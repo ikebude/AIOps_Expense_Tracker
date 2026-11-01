@@ -130,13 +130,7 @@ export default function App() {
             <ReceiptParser onParsed={setPrefill} />
           </div>
           <div className="col">
-            {list.items.length === 0 ? (
-              <section className="card">
-                <EmptyState />
-              </section>
-            ) : (
-              <ExpenseList items={list.items} total={list.total} onLoadMore={loadMore} />
-            )}
+            {/* Forecast first: below a 50-row list it was ~6,500 px down on a phone. */}
             {forecast.data ? (
               <ForecastChart forecast={forecast.data} demo={Boolean(health?.demo_data)} />
             ) : (
@@ -146,6 +140,13 @@ export default function App() {
                   <p className="hint">{forecast.error}</p>
                 </section>
               )
+            )}
+            {list.items.length === 0 ? (
+              <section className="card">
+                <EmptyState />
+              </section>
+            ) : (
+              <ExpenseList items={list.items} total={list.total} onLoadMore={loadMore} />
             )}
           </div>
         </main>
