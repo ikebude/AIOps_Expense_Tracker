@@ -103,6 +103,34 @@ def test_online_feedback_retraining():
     assert new_pred["category"] == "Equipment & Repairs"
 
 
+@pytest.mark.parametrize(
+    "hostile",
+    [
+        "VAT" + " " * 9990 + "x",
+        "VAT:" + " " * 9990 + "x",
+        "TOTAL" + " " * 9990 + "x",
+        "DATE" + " " * 9990 + "x",
+        "vat " * 2500,
+    ],
+)
+def test_receipt_parser_is_linear_on_hostile_text(hostile):
+    # Audit 2026-11-01: "DATE" + ~2,500 spaces + "x" took longer than 15 s because the
+    # optional prefix "\s*:?\s*" backtracked cubically; /v1/receipt/parse is unauthenticated.
+    import time
+
+    t0 = time.monotonic()
+    extract_receipt_fields(hostile[:10_000])
+    assert time.monotonic() - t0 < 1.0
+
+
+def test_receipt_fields_with_spacing_variants():
+    text = "Shop\nDate :  15/01/2026\nTotal Paid :  NGN  2,000.50\nVAT  (7.5%) :  N 140.00"
+    f = extract_receipt_fields(text)
+    assert f["date"] == "2026-01-15"
+    assert f["total_ngn"] == 2000.50
+    assert f["vat_ngn"] == 140.0
+
+
 def test_receipt_ocr_extraction():
     sample_receipt = """
     *** SHOPRITE IKEJA CITY MALL ***

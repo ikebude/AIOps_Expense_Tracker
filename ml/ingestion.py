@@ -227,9 +227,9 @@ def extract_receipt_fields(raw_text: str) -> dict[str, Any]:
 
     # 2. Extract Date
     extracted_date = ""
-    date_regex = re.compile(
-        r"(?i)(?:date|dt)?\s*:?\s*(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})"
-    )
+    # The "Date:" label is optional and not captured, so search for the date alone. The old
+    # optional prefix "(?:date|dt)?\s*:?\s*" backtracked cubically on long runs of spaces.
+    date_regex = re.compile(r"(\d{4}-\d{2}-\d{2}|\d{2}[/-]\d{2}[/-]\d{4})")
     for ln in lines:
         m_dt = date_regex.search(ln)
         if m_dt:
@@ -239,7 +239,8 @@ def extract_receipt_fields(raw_text: str) -> dict[str, Any]:
     # 3. Extract VAT (NGN)
     vat_ngn = 0.0
     vat_found = False
-    vat_regex = re.compile(r"(?i)\b(?:vat|tax)\b[^:\n]*:\s*(?:ngn|₦|n)?\s*([\d,]+(?:\.\d{1,2})?)")
+    # Possessive quantifiers (*+) stop catastrophic backtracking on long whitespace runs.
+    vat_regex = re.compile(r"(?i)\b(?:vat|tax)\b[^:\n]*+:\s*+(?:ngn|₦|n)?\s*+([\d,]+(?:\.\d{1,2})?)")
     for ln in lines:
         m_vat = vat_regex.search(ln)
         if m_vat:
@@ -251,7 +252,7 @@ def extract_receipt_fields(raw_text: str) -> dict[str, Any]:
     total_ngn = 0.0
     total_found = False
     total_regex = re.compile(
-        r"(?i)(?:grand\s+total|total\s+amount|total\s+paid|total\s+charged|amount\s+paid|net\s+payable|^total)\s*:?\s*(?:ngn|₦|n)?\s*([\d,]+(?:\.\d{1,2})?)"
+        r"(?i)(?:grand\s+total|total\s+amount|total\s+paid|total\s+charged|amount\s+paid|net\s+payable|^total)\s*+:?\s*+(?:ngn|₦|n)?\s*+([\d,]+(?:\.\d{1,2})?)"
     )
     for ln in lines:
         if re.search(r"(?i)sub[\s-]*total", ln):
